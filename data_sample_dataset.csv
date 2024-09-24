@@ -1,0 +1,11 @@
+species,genetic_marker
+Species A,ATCG
+Species A,ATGG
+Species B,TTCG
+Species B,TTGG
+Species C,ATCC
+Species C,ATGC
+Species D,GTCG
+Species D,GAGG
+Species E,CTCG
+Species E,CTGG

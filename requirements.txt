@@ -1,0 +1,5 @@
+PyQt5
+PyOpenGL
+PyOpenGL_accelerate
+networkx
+pandas
