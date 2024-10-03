@@ -11,6 +11,9 @@ class Interaction:
         self.ui.zoom_in_button.clicked.connect(self.zoom_in)
         self.ui.zoom_out_button.clicked.connect(self.zoom_out)
         self.ui.reset_view_button.clicked.connect(self.reset_view)
+        # load data button
+        self.ui.load_data_button.clicked.connect(self.load_data)
+
         
         # Rotation buttons
         self.ui.rotate_x_pos_button.clicked.connect(lambda: self.rotate_view(axis=0, angle=5))
@@ -26,6 +29,24 @@ class Interaction:
     def zoom_out(self):
         self.viz.update_zoom(-10)  # Adjust zoom decrement as needed
     
+    def load_data(self):
+        options = QtWidgets.QFileDialog.Options()
+        file_name, _ = QtWidgets.QFileDialog.getOpenFileName(
+        self.viz,
+        "Open Data File",
+        "",
+        "CSV Files (*.csv);;JSON Files (*.json)",
+        options=options
+    )
+        try:
+            raw_data = load_data(file_name)
+            processed_data = process_data(raw_data)
+            tree = generate_tree(processed_data)
+            self.viz.update_tree(tree)
+        except Exception as e:
+            QtWidgets.QMessageBox.critical(self.viz, "Error", f"Failed to load data:\n{e}")
+
+
     def reset_view(self):
         self.viz.zoom = -100
         self.viz.rotation = [0, 0, 0]
@@ -40,3 +61,7 @@ class Interaction:
             angle (float): Angle to rotate in degrees.
         """
         self.viz.update_rotation(axis, angle)
+
+    def update_time(self, value):
+        # Update the visualization based on the selected time
+        self.viz.update_time(value)
