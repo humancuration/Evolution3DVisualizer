@@ -8,6 +8,9 @@ from mod_tree_generator import generate_tree
 from mod_visualization import Visualization
 from mod_ui import UserInterface
 from mod_interaction import Interaction
+from event_manager import EventManager
+import sys
+from profiling import run_profiler, print_profiler_stats
 
 def setup_logging() -> None:
     logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
@@ -24,8 +27,9 @@ def load_and_process_data(settings: Dict[str, Any]) -> Any:
 def initialize_components(settings: Dict[str, Any], processed_data: Any) -> (Visualization, UserInterface, Interaction):
     try:
         tree = generate_tree(processed_data)
-        viz = Visualization(tree, settings)
-        ui = UserInterface(settings)
+        event_manager = EventManager()
+        viz = Visualization(tree, settings, event_manager)
+        ui = UserInterface(settings, viz, event_manager)
         interaction = Interaction(viz, ui)
         return viz, ui, interaction
     except Exception as e:
@@ -47,4 +51,8 @@ def main() -> None:
         logging.critical(f"Unhandled exception: {e}")
 
 if __name__ == "__main__":
-    main()
+    if "--profile" in sys.argv:
+        run_profiler()
+        print_profiler_stats()
+    else:
+        main()

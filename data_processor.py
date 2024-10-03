@@ -2,6 +2,7 @@
 
 import pandas as pd
 from util_math import calculate_genetic_distance
+import igraph as ig
 
 def process_data(raw_data):
     """
@@ -36,3 +37,39 @@ def process_data(raw_data):
     }
     
     return processed_data
+
+def generate_tree(processed_data):
+    species = processed_data['species']
+    edges = []
+    weights = []
+    for sp1 in species:
+        for sp2 in species:
+            if sp1 != sp2:
+                distance = processed_data['distance_matrix'][sp1][sp2]
+                edges.append((sp1, sp2))
+                weights.append(distance)
+    g = ig.Graph.TupleList(edges, directed=False)
+    g.es['weight'] = weights
+    return g
+
+def process_data_in_chunks(file_path, chunk_size=1000):
+    # Assuming data is in CSV format
+    chunks = pd.read_csv(file_path, chunksize=chunk_size)
+    for chunk in chunks:
+        # Process each chunk
+        process_chunk(chunk)
+
+def process_chunk(chunk):
+    # Implement the logic to process each chunk
+    # This could involve calculating distances, updating a global data structure, etc.
+    pass
+
+def load_data_generator(file_path):
+    with open(file_path, 'r') as f:
+        for line in f:
+            yield process_line(line)
+
+def process_line(line):
+    # Implement the logic to process a single line of data
+    # This could involve parsing the line, extracting relevant information, etc.
+    pass

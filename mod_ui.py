@@ -1,14 +1,17 @@
 # mod_ui.py
 
 from PyQt5 import QtWidgets
-from PyQt5.QtWidgets import QWidget, QVBoxLayout, QPushButton, QHBoxLayout
+from PyQt5.QtWidgets import QWidget, QVBoxLayout, QPushButton, QHBoxLayout, QSlider, QLabel
+from PyQt5.QtCore import Qt
 
 class UserInterface(QWidget):
-    def __init__(self, settings):
+    def __init__(self, settings, visualization, event_manager):
         super().__init__()
         self.settings = settings
+        self.viz = visualization
+        self.event_manager = event_manager
         self.initUI()
-    
+
     def initUI(self):
         self.setWindowTitle('User Interface')
         self.setGeometry(900, 100, 200, 600)
@@ -63,14 +66,57 @@ class UserInterface(QWidget):
         self.time_slider.valueChanged.connect(self.update_time)
         layout.addWidget(self.time_slider)
 
-        
         layout.addLayout(rotate_layout)
         
+        # Add node size slider
+        self.node_size_slider = QtWidgets.QSlider(Qt.Horizontal)
+        self.node_size_slider.setRange(1, 20)
+        self.node_size_slider.setValue(self.settings['visualization_params']['node_size'])
+        self.node_size_slider.valueChanged.connect(self.update_node_size)
+        layout.addWidget(QtWidgets.QLabel("Node Size"))
+        layout.addWidget(self.node_size_slider)
+        
+        # Add LOD slider
+        self.lod_slider = QSlider(Qt.Horizontal)
+        self.lod_slider.setRange(10, 200)
+        self.lod_slider.setValue(50)
+        self.lod_slider.valueChanged.connect(self.update_lod)
+        layout.addWidget(QLabel("Level of Detail"))
+        layout.addWidget(self.lod_slider)
+        
         self.setLayout(layout)
+
+    def setup_search_bar(self):
+        self.search_bar = QLineEdit()
+        self.search_bar.setPlaceholderText("Search for a node...")
+        self.search_bar.returnPressed.connect(self.search_node)
+        self.layout().addWidget(self.search_bar)
+
+    def search_node(self):
+        query = self.search_bar.text()
+        self.event_manager.emit('search_node', query)
   
     def get_legend_items(self):
         return [
-            ('attribute_value_1', (1.0, 0.0, 0.0)),
-            ('attribute_value_2', (0.0, 1.0, 0.0)),
-            # Add more items
+            ('attribute_value_1', (1.0, 0.0, 0.0), "Description for attribute 1"),
+            ('attribute_value_2', (0.0, 1.0, 0.0), "Description for attribute 2"),
+            # Add more items with descriptions
         ]
+    
+    def create_legend(self):
+        for attr_value, color, description in self.get_legend_items():
+            color_label = QLabel()
+            color_label.setFixedSize(20, 20)
+            color_label.setStyleSheet(f"background-color: rgb({color[0]*255}, {color[1]*255}, {color[2]*255});")
+            color_label.setToolTip(description)
+            text_label = QLabel(attr_value)
+            text_label.setToolTip(description)
+            self.legend_layout.addWidget(color_label)
+            self.legend_layout.addWidget(text_label)
+
+    def update_node_size(self, value):
+        self.settings['visualization_params']['node_size'] = value
+        self.viz.update()
+
+    def update_lod(self, value):
+        self.event_manager.emit('update_lod', value)

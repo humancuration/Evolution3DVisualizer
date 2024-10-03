@@ -3,3 +3,6 @@ PyOpenGL
 PyOpenGL_accelerate
 networkx
 pandas
+scikit-learn
+vispy
+python-igraph

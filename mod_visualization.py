@@ -8,9 +8,10 @@ from OpenGL.arrays import vbo
 import sys
 import networkx as nx
 import numpy as np
+from sklearn.cluster import KMeans
 
 class Visualization(QOpenGLWidget):
-    def __init__(self, tree, settings):
+    def __init__(self, tree, settings, event_manager):
         super(Visualization, self).__init__()
         self.node_id_map = {}
         self.tree = tree
@@ -20,6 +21,13 @@ class Visualization(QOpenGLWidget):
         self.setMinimumSize(800, 600)
         self.last_mouse_pos = None
         self.setFocusPolicy(Qt.StrongFocus)
+        self.camera_pos = [0, 0, -100]  # Initial camera position
+        self.lod_threshold = 50  # Initial LOD threshold
+        self.selection_radius = 5  # Radius for node selection in pixels
+        self.event_manager = event_manager
+        self.event_manager.subscribe('search_node', self.highlight_searched_node)
+        self.event_manager.subscribe('update_lod', self.update_lod_threshold)
+        self.pan = [0, 0]  # Initialize pan
     
     def initializeGL(self):
         # Background color and other initial settings
@@ -39,6 +47,16 @@ class Visualization(QOpenGLWidget):
         # Create Vertex Buffer Object (VBO) for efficient rendering
         self.create_vbo()
 
+    def highlight_searched_node(self, node_name):
+        if node_name in self.tree.nodes:
+            self.highlighted_node = node_name
+            self.center_view_on_node(node_name)
+            self.update()
+
+    def center_view_on_node(self, node_name):
+        # Implement logic to center the view on the given node
+        pass
+
     def create_vbo(self):
         # Prepare vertex data for VBO
         vertices = []
@@ -47,33 +65,58 @@ class Visualization(QOpenGLWidget):
             vertices.extend(pos)
         self.node_vbo = vbo.VBO(np.array(vertices, dtype='f'))
 
-    def draw_tree(self, select_mode=False):
-        # Draw nodes using VBO
-        glPointSize(self.settings['visualization_params']['node_size'])
-        glBegin(GL_POINTS)
-        for idx, node in enumerate(self.tree.nodes()):
-            pos = self.tree.nodes[node]['pos']
-            if select_mode:
-                glLoadName(idx + 1)
-                self.node_id_map[idx + 1] = node
-            else:
-                # Assign color based on node attribute
-                attr = self.tree.nodes[node].get('attribute', 'default')
-                glColor3f(*self.get_color_for_attribute(attr))
-            glVertex3f(*pos)
-        glEnd()
+    def cluster_nodes(self, n_clusters):
+        positions = np.array([self.tree.nodes[node]['pos'] for node in self.tree.nodes()])
+        kmeans = KMeans(n_clusters=n_clusters)
+        labels = kmeans.fit_predict(positions)
+        for node, label in zip(self.tree.nodes(), labels):
+            self.tree.nodes[node]['cluster'] = label
 
-        # Draw edges (light gray)
-        glColor3f(0.7, 0.7, 0.7)
-        glLineWidth(1)
+    def draw_tree(self, select_mode=False):
+        # Draw edges with variable thickness
+        max_weight = max([data['weight'] for _, _, data in self.tree.edges(data=True)])
         glBegin(GL_LINES)
         for edge in self.tree.edges(data=True):
             node1, node2, data = edge
             pos1 = self.tree.nodes[node1]['pos']
             pos2 = self.tree.nodes[node2]['pos']
+            weight = data['weight']
+            normalized_weight = (weight / max_weight)
+            glLineWidth(1 + normalized_weight * 5)  # Adjust max thickness
+            glColor3f(0.0, 0.0, 1.0 - normalized_weight)  # Blue to light blue
             glVertex3f(*pos1)
             glVertex3f(*pos2)
         glEnd()
+
+        # Calculate visible nodes based on distance and LOD threshold
+        for idx, node in enumerate(self.tree.nodes()):
+            pos = self.tree.nodes[node]['pos']
+            distance = np.linalg.norm([pos[0] - self.camera_pos[0],
+                                       pos[1] - self.camera_pos[1],
+                                       pos[2] - self.camera_pos[2]])
+            if distance < self.lod_threshold:
+                if select_mode:
+                    glLoadName(idx + 1)
+                    self.node_id_map[idx + 1] = node
+                else:
+                    # Assign color based on node attribute
+                    attr = self.tree.nodes[node].get('attribute', 'default')
+                    glColor3f(*self.get_color_for_attribute(attr))
+                self.draw_node(pos)
+
+        # Draw highlighted node
+        if hasattr(self, 'highlighted_node') and self.highlighted_node and not select_mode:
+            pos = self.tree.nodes[self.highlighted_node]['pos']
+            glColor3f(1.0, 1.0, 0.0)  # Highlight color (yellow)
+            self.draw_node(pos)
+
+    def draw_node(self, pos):
+        glPushMatrix()
+        glTranslatef(*pos)
+        quadric = gluNewQuadric()
+        gluSphere(quadric, self.settings['visualization_params']['node_size'] * 0.1, 16, 16)
+        gluDeleteQuadric(quadric)
+        glPopMatrix()
 
     def get_color_for_attribute(self, attr):
         # Assign color based on attribute
@@ -96,6 +139,7 @@ class Visualization(QOpenGLWidget):
         # Clear the screen and reset the view
         glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT)
         glLoadIdentity()
+        self.draw_background()
         # Move back to see the scene
         glTranslatef(self.pan[0], self.pan[1], self.zoom)
         # Apply rotations
@@ -120,8 +164,15 @@ class Visualization(QOpenGLWidget):
         return None
 
     def mousePressEvent(self, event):
-        # Store mouse press position
-        self.last_mouse_pos = event.pos()
+        if event.button() == Qt.RightButton:
+            x = event.x()
+            y = self.height() - event.y()
+            node_name = self.pick_node(x, y)
+            if node_name:
+                self.show_context_menu(event.globalPos(), node_name)
+        else:
+            # Store mouse press position
+            self.last_mouse_pos = event.pos()
 
     def mouseMoveEvent(self, event):
         # Handle mouse dragging for rotation and panning
@@ -142,6 +193,7 @@ class Visualization(QOpenGLWidget):
 
         self.last_mouse_pos = event.pos()
         self.update()
+        self.highlight_node(event.x(), event.y())
 
     def mouseReleaseEvent(self, event):
         # Reset mouse press position on release
@@ -161,7 +213,7 @@ class Visualization(QOpenGLWidget):
             self.show_node_info(selected_node)
 
     def pick_node(self, x, y):
-        # Node picking using OpenGL selection mode
+        # Node picking using OpenGL selection mode with selection radius
         buffer_size = 512
         select_buffer = glSelectBuffer(buffer_size)
         glRenderMode(GL_SELECT)
@@ -172,7 +224,7 @@ class Visualization(QOpenGLWidget):
         glPushMatrix()
         glLoadIdentity()
         viewport = glGetIntegerv(GL_VIEWPORT)
-        gluPickMatrix(x, y, 5, 5, viewport)
+        gluPickMatrix(x, y, self.selection_radius, self.selection_radius, viewport)
         gluPerspective(45, viewport[2] / viewport[3], 0.1, 1000.0)
         glMatrixMode(GL_MODELVIEW)
 
@@ -222,3 +274,130 @@ class Visualization(QOpenGLWidget):
         # Filter or modify the tree based on time_value
         # Update VBOs or data structures accordingly
         self.update()
+
+    def animate_to(self, target_zoom=None, target_rotation=None):
+        # Store the target values
+        self.target_zoom = target_zoom if target_zoom is not None else self.zoom
+        self.target_rotation = target_rotation if target_rotation is not None else self.rotation.copy()
+        self.animation_step = 0
+        self.total_steps = 60  # Adjust for animation speed
+        self.timer = QtCore.QTimer()
+        self.timer.timeout.connect(self.update_animation)
+        self.timer.start(16)  # Approximately 60 FPS
+
+    def update_animation(self):
+        if self.animation_step < self.total_steps:
+            t = self.animation_step / self.total_steps
+            # Easing function (smoothstep)
+            t = t * t * (3 - 2 * t)
+            # Interpolate zoom
+            self.zoom += (self.target_zoom - self.zoom) * t
+            # Interpolate rotation
+            self.rotation = [
+                self.rotation[i] + (self.target_rotation[i] - self.rotation[i]) * t
+                for i in range(3)
+            ]
+            self.animation_step += 1
+            self.update()
+        else:
+            self.timer.stop()
+
+    def draw_background(self):
+        glDisable(GL_DEPTH_TEST)
+        glBegin(GL_QUADS)
+        glColor3f(0.2, 0.3, 0.5)  # Top color
+        glVertex2f(-1.0, 1.0)
+        glVertex2f(1.0, 1.0)
+        glColor3f(0.8, 0.9, 1.0)  # Bottom color
+        glVertex2f(1.0, -1.0)
+        glVertex2f(-1.0, -1.0)
+        glEnd()
+        glEnable(GL_DEPTH_TEST)
+
+    def highlight_node(self, x, y):
+        node_name = self.pick_node(x, self.height() - y)
+        if node_name != getattr(self, 'highlighted_node', None):
+            self.highlighted_node = node_name
+            self.update()
+
+    def show_context_menu(self, position, node_name):
+        menu = QtWidgets.QMenu()
+        zoom_action = menu.addAction("Zoom to Node")
+        details_action = menu.addAction("Show Details")
+        self.add_context_menu_actions(menu, node_name)
+        action = menu.exec_(position)
+        if action == zoom_action:
+            self.zoom_to_node(node_name)
+        elif action == details_action:
+            self.show_node_info(node_name)
+
+    def zoom_to_node(self, node_name):
+        # Smoothly animate zooming to the selected node
+        target_pos = self.tree.nodes[node_name]['pos']
+        # Compute required transformations to center and zoom in on the node
+        # Implement similar to animate_to method
+        # Example:
+        # self.animate_to(target_zoom=desired_zoom_level, target_rotation=desired_rotation)
+
+    def save_screenshot(self, filename):
+        width = self.width()
+        height = self.height()
+        glPixelStorei(GL_PACK_ALIGNMENT, 1)
+        data = glReadPixels(0, 0, width, height, GL_RGBA, GL_UNSIGNED_BYTE)
+        image = QtGui.QImage(data, width, height, QtGui.QImage.Format_RGBA8888)
+        image = image.mirrored(False, True)  # Flip vertically
+        image.save(filename)
+
+    def update_lod_threshold(self, value):
+        self.lod_threshold = value
+        self.update()
+
+    def keyPressEvent(self, event):
+        if event.key() == Qt.Key_Plus:
+            self.update_zoom(5)
+        elif event.key() == Qt.Key_Minus:
+            self.update_zoom(-5)
+        elif event.key() == Qt.Key_R:
+            self.reset_view()
+        elif event.key() == Qt.Key_Left:
+            self.update_rotation(1, -5)
+        elif event.key() == Qt.Key_Right:
+            self.update_rotation(1, 5)
+        elif event.key() == Qt.Key_Up:
+            self.update_rotation(0, -5)
+        elif event.key() == Qt.Key_Down:
+            self.update_rotation(0, 5)
+        self.update()
+
+    def reset_view(self):
+        self.zoom = -100
+        self.rotation = [0, 0, 0]
+        self.pan = [0, 0]
+        self.update()
+
+    def annotate_node(self, node_name, annotation):
+        # Add an annotation to a node and display it
+        if 'annotations' not in self.tree.nodes[node_name]:
+            self.tree.nodes[node_name]['annotations'] = []
+        self.tree.nodes[node_name]['annotations'].append(annotation)
+        info = f"Annotated Node: {node_name}\nAnnotation: {annotation}"
+        QtWidgets.QMessageBox.information(self, "Node Annotation", info)
+        self.update()
+
+    def delete_node(self, node_name):
+        # Remove a node from the tree
+        if node_name in self.tree.nodes:
+            self.tree.remove_node(node_name)
+            self.create_vbo()
+            self.update()
+
+    def add_context_menu_actions(self, menu, node_name):
+        annotate_action = menu.addAction("Add Annotation")
+        delete_action = menu.addAction("Delete Node")
+        action = menu.exec_(QtGui.QCursor.pos())
+        if action == annotate_action:
+            annotation, ok = QtWidgets.QInputDialog.getText(self, "Add Annotation", f"Enter annotation for node {node_name}:")
+            if ok and annotation:
+                self.annotate_node(node_name, annotation)
+        elif action == delete_action:
+            self.delete_node(node_name)
