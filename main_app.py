@@ -1,4 +1,5 @@
 import logging
+import traceback
 from typing import Any, Dict
 
 import config_settings
@@ -20,8 +21,12 @@ def load_and_process_data(settings: Dict[str, Any]) -> Any:
         raw_data = load_data(settings['data_file'])
         processed_data = process_data(raw_data)
         return processed_data
+    except FileNotFoundError as e:
+        logging.error(f"File not found: {e}")
+    except ValueError as e:
+        logging.error(f"Invalid data format: {e}")
     except Exception as e:
-        logging.error(f"Error loading or processing data: {e}")
+        logging.error(f"Unexpected error: {e}\n{traceback.format_exc()}")
         raise
 
 def initialize_components(settings: Dict[str, Any], processed_data: Any) -> (Visualization, UserInterface, Interaction):

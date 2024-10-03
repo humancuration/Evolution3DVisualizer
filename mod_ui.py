@@ -1,8 +1,34 @@
 # mod_ui.py
 
 from PyQt5 import QtWidgets
-from PyQt5.QtWidgets import QWidget, QVBoxLayout, QPushButton, QHBoxLayout, QSlider, QLabel
+from PyQt5.QtWidgets import QWidget, QVBoxLayout, QPushButton, QHBoxLayout, QSlider, QLabel, QLineEdit, QTextEdit
 from PyQt5.QtCore import Qt
+import logging
+
+logging.basicConfig(filename="app.log", level=logging.INFO)
+
+class LogViewer(QWidget):
+    def __init__(self):
+        super().__init__()
+        self.setWindowTitle("Log Viewer")
+        self.setGeometry(100, 100, 600, 400)
+
+        layout = QVBoxLayout()
+
+        self.log_text = QTextEdit(self)
+        self.log_text.setReadOnly(True)
+        layout.addWidget(self.log_text)
+
+        self.refresh_button = QPushButton("Refresh Logs")
+        self.refresh_button.clicked.connect(self.load_logs)
+        layout.addWidget(self.refresh_button)
+
+        self.setLayout(layout)
+        self.load_logs()
+
+    def load_logs(self):
+        with open("app.log", "r") as f:
+            self.log_text.setPlainText(f.read())
 
 class UserInterface(QWidget):
     def __init__(self, settings, visualization, event_manager):
@@ -84,6 +110,10 @@ class UserInterface(QWidget):
         layout.addWidget(QLabel("Level of Detail"))
         layout.addWidget(self.lod_slider)
         
+        self.show_logs_button = QPushButton("Show Logs")
+        self.show_logs_button.clicked.connect(self.show_logs)
+        layout.addWidget(self.show_logs_button)
+
         self.setLayout(layout)
 
     def setup_search_bar(self):
@@ -120,3 +150,11 @@ class UserInterface(QWidget):
 
     def update_lod(self, value):
         self.event_manager.emit('update_lod', value)
+
+    def show_logs(self):
+        self.log_viewer = LogViewer()
+        self.log_viewer.show()
+
+    def update_time(self, value):
+        # Update time logic here
+        pass

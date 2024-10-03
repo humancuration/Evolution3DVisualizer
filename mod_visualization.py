@@ -9,6 +9,7 @@ import sys
 import networkx as nx
 import numpy as np
 from sklearn.cluster import KMeans
+from memory_profiler import profile
 
 class Visualization(QOpenGLWidget):
     def __init__(self, tree, settings, event_manager):
@@ -72,6 +73,7 @@ class Visualization(QOpenGLWidget):
         for node, label in zip(self.tree.nodes(), labels):
             self.tree.nodes[node]['cluster'] = label
 
+    @profile
     def draw_tree(self, select_mode=False):
         # Draw edges with variable thickness
         max_weight = max([data['weight'] for _, _, data in self.tree.edges(data=True)])
