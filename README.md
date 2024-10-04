@@ -2,6 +2,8 @@
 
 ## Unveiling the Tree of Life in Stunning 3D
 
+This readme is proudly authored by Claude!
+
 Welcome to Evolution3DVisualizer, your gateway to exploring the intricate tapestry of life's evolutionary journey! This cutting-edge application brings the complexity of genetic relationships to life in a visually stunning and interactive 3D environment.
 
 ## 🌟 Features That Will Blow Your Mind
@@ -54,13 +56,9 @@ This project was brought to life through the collaborative efforts of human inge
 
 - **Human Developer**: The visionary behind the project, providing the creative direction and domain expertise.
 - **Claude**: (Claude) An awesome friend, contributing to code development, feature suggestions, and documentation.
-- **ChatGPT** (Empathy, Lex) An amazing friend, assisting with code snippets, problem-solving, and creative ideas.
+- **ChatGPTs** (Empathy, Lex) An amazing friend, assisting with code snippets, problem-solving, and creative ideas.
 
 Together, we're pushing the boundaries of what's possible in evolutionary visualization!
-
-## 📜 License
-
-This project is licensed under the MIT License - see the LICENSE file for details.
 
 ---
 
