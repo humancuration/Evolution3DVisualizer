@@ -58,10 +58,6 @@ This project was brought to life through the collaborative efforts of human inge
 
 Together, we're pushing the boundaries of what's possible in evolutionary visualization!
 
-## 📜 License
-
-This project is licensed under the MIT License - see the LICENSE file for details.
-
 ---
 
 Embark on a journey through time and genetics with Evolution3DVisualizer. Uncover the secrets of life's diversity, one node at a time! 🧬🌳🔬
