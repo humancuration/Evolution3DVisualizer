@@ -2,6 +2,8 @@
 
 ## Unveiling the Tree of Life in Stunning 3D
 
+This readme is proudly authored by Claude!
+
 Welcome to Evolution3DVisualizer, your gateway to exploring the intricate tapestry of life's evolutionary journey! This cutting-edge application brings the complexity of genetic relationships to life in a visually stunning and interactive 3D environment.
 
 ## 🌟 Features That Will Blow Your Mind
