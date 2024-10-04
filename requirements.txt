@@ -7,3 +7,4 @@ scikit-learn
 vispy
 python-igraph
 memory-profiler
+traceback
